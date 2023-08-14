@@ -4,7 +4,7 @@ This crate makes it easy to use the undo-operation on [bevy](https://bevyengine.
 
 [![License: MIT/Apache](https://img.shields.io/badge/License-MIT%20or%20Apache2-blue.svg)](https://opensource.org/licenses/MIT)
 
-[![Crate](https://img.shields.io/crates/v/bevy-undo.svg)](https://crates.io/crates/bevy-undo2)
+[![Crate](https://img.shields.io/crates/v/bevy-undo2.svg)](https://crates.io/crates/bevy-undo2)
 
 ## Examples
 

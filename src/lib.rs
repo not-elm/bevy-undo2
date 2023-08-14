@@ -1,5 +1,5 @@
 use bevy::app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy::prelude::{Event, EventReader, in_state, IntoSystemConfigs, NextState, ResMut, Resource,  States};
+use bevy::prelude::{Event, EventReader, in_state, IntoSystemConfigs, NextState, ResMut, Resource, States};
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
@@ -105,9 +105,11 @@ fn decrement_count_system(
     mut counter: ResMut<UndoCounter>,
     mut sent: ResMut<SentUndo>,
 ) {
-    sent.0 = false;
     state.set(UndoEventState::None);
-    counter.decrement();
+    if sent.0 {
+        counter.decrement();
+        sent.0 = false;
+    }
 }
 
 
