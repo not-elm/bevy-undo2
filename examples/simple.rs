@@ -1,10 +1,5 @@
-use bevy::app::{App, Startup, Update};
-use bevy::DefaultPlugins;
-use bevy::input::Input;
-use bevy::prelude::{Event, EventReader, KeyCode, Res};
-
-use bevy_undo2::prelude::{AppUndoEx, UndoEventWriter, UndoRequester};
-use bevy_undo2::Undo2Plugin;
+use bevy::prelude::*;
+use bevy_undo2::prelude::*;
 
 #[derive(Event, Clone)]
 struct GreetEvent(String);
@@ -13,7 +8,7 @@ struct GreetEvent(String);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(Undo2Plugin)
+        .add_plugins(UndoPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, (keyboard_input_system, read_undo_event_system))
         .add_undo_event::<GreetEvent>()
@@ -22,9 +17,20 @@ fn main() {
 
 
 fn setup(
-    mut w: UndoEventWriter<GreetEvent>
+    mut commands: Commands,
+    mut scheduler: UndoScheduler<GreetEvent>,
+    asset: Res<AssetServer>,
 ) {
-    w.write(GreetEvent("Hello World!".to_string()));
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Text2dBundle {
+        text: Text::from_section("Please Press [R]", TextStyle {
+            font: asset.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 31.,
+            ..default()
+        }),
+        ..default()
+    });
+    scheduler.register(GreetEvent("Undo!".to_string()));
 }
 
 
@@ -38,8 +44,11 @@ fn keyboard_input_system(
 }
 
 
-fn read_undo_event_system(mut er: EventReader<GreetEvent>) {
+fn read_undo_event_system(
+    mut er: EventReader<GreetEvent>,
+    mut text: Query<&mut Text>,
+) {
     for GreetEvent(message) in er.iter() {
-        println!("{message}");
+        text.single_mut().sections[0].value = message.clone();
     }
 }

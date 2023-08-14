@@ -5,15 +5,15 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Event, EventReader};
 
 use crate::extension::AppUndoEx;
-use crate::prelude::UndoEventWriter;
+use crate::prelude::UndoScheduler;
 
 #[derive(SystemParam)]
-pub struct UndoCallbackEventWriter<'w>(UndoEventWriter<'w, UndoCallbackEvent>);
+pub struct UndoCallbackScheduler<'w>(UndoScheduler<'w, UndoCallbackEvent>);
 
-impl<'w> UndoCallbackEventWriter<'w> {
+impl<'w> UndoCallbackScheduler<'w> {
     #[inline(always)]
-    pub fn on_undo(&mut self, f: impl Fn(&mut Commands) + Send + Sync + 'static) {
-        self.0.write(UndoCallbackEvent::new(f));
+    pub fn register(&mut self, f: impl Fn(&mut Commands) + Send + Sync + 'static) {
+        self.0.register(UndoCallbackEvent::new(f));
     }
 }
 
@@ -54,35 +54,3 @@ pub(crate) fn undo_callback_event_system(
 }
 
 
-#[cfg(test)]
-mod tests {
-    use bevy::app::{App, Startup, Update};
-    use bevy::prelude::Component;
-
-    use crate::Undo2Plugin;
-    use crate::prelude::UndoRequester;
-    use crate::undo_event::callback::UndoCallbackEventWriter;
-
-    #[test]
-    fn a() {
-        let mut app = App::new();
-        app.add_plugins(Undo2Plugin);
-        app.add_systems(Startup, on_undo);
-        app.add_systems(Update, undo);
-        app.update();
-        // assert!(app.world.query::<&Test>().iter(&app.world).len() == 1);
-    }
-
-    #[derive(Component)]
-    struct Test;
-
-    fn undo(mut req: UndoRequester) {
-        req.undo();
-    }
-
-    fn on_undo(mut w: UndoCallbackEventWriter) {
-        w.on_undo(|cmd| {
-            cmd.spawn(Test);
-        });
-    }
-}

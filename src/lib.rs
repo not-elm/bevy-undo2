@@ -1,5 +1,5 @@
 use bevy::app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy::prelude::{Event, EventReader, IntoSystemConfigs, ResMut, Resource, resource_exists_and_equals};
+use bevy::prelude::{Event, EventReader, in_state, IntoSystemConfigs, NextState, ResMut, Resource,  States};
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
@@ -12,25 +12,28 @@ mod undo_event;
 
 pub mod prelude {
     pub use crate::request::UndoRequester;
-    pub use crate::Undo2Plugin;
+    pub use crate::UndoPlugin;
     pub use crate::extension::AppUndoEx;
     #[cfg(feature = "callback_event")]
-    pub use crate::undo_event::callback::UndoCallbackEventWriter;
-    pub use crate::undo_event::UndoEventWriter;
+    pub use crate::undo_event::callback::UndoCallbackScheduler;
+    pub use crate::undo_event::UndoScheduler;
 }
 
+
+/// Add undo-operations to an app.
 #[derive(Debug, Default, Eq, PartialEq, Copy, Clone, Hash)]
-pub struct Undo2Plugin;
+pub struct UndoPlugin;
 
 
-impl Plugin for Undo2Plugin {
+impl Plugin for UndoPlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_resource::<UndoEventStatus>()
+            .add_state::<UndoEventState>()
             .init_resource::<UndoCounter>()
+            .init_resource::<SentUndo>()
             .add_event::<RequestUndoEvent>()
             .add_systems(PreUpdate, request_undo_system)
-            .add_systems(PostUpdate, decrement_count_system.run_if(resource_exists_and_equals(UndoEventStatus::Sent)));
+            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoEventState::RequestUndo)));
 
         #[cfg(feature = "callback_event")]
         app.add_plugins(crate::undo_event::callback::UndoCallbackEventPlugin);
@@ -38,14 +41,12 @@ impl Plugin for Undo2Plugin {
 }
 
 
-#[derive(Resource, Default, PartialEq, Debug)]
-enum UndoEventStatus {
+#[derive(States, Default, PartialEq, Debug, Copy, Clone, Eq, Hash)]
+enum UndoEventState {
     #[default]
     None,
 
     RequestUndo,
-
-    Sent,
 }
 
 
@@ -59,6 +60,10 @@ impl<T: Event + Clone> Default for UndoStack<T> {
         Self(vec![])
     }
 }
+
+
+#[derive(Resource, Default)]
+pub(crate) struct SentUndo(pub bool);
 
 
 impl<E: Event + Clone> UndoStack<E> {
@@ -87,19 +92,21 @@ impl<E: Event + Clone> UndoStack<E> {
 
 fn request_undo_system(
     mut er: EventReader<RequestUndoEvent>,
-    mut status: ResMut<UndoEventStatus>,
+    mut state: ResMut<NextState<UndoEventState>>,
 ) {
     if er.iter().next().is_some() {
-        *status = UndoEventStatus::RequestUndo;
+        state.set(UndoEventState::RequestUndo);
     }
 }
 
 
 fn decrement_count_system(
-    mut status: ResMut<UndoEventStatus>,
+    mut state: ResMut<NextState<UndoEventState>>,
     mut counter: ResMut<UndoCounter>,
+    mut sent: ResMut<SentUndo>,
 ) {
-    *status = UndoEventStatus::None;
+    sent.0 = false;
+    state.set(UndoEventState::None);
     counter.decrement();
 }
 

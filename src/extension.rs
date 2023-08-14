@@ -1,7 +1,7 @@
 use bevy::app::{App, Update};
-use bevy::prelude::{Event, EventReader, EventWriter, IntoSystemConfigs, Res, ResMut, resource_exists_and_equals};
+use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, Res, ResMut};
 
-use crate::{UndoEventStatus, UndoStack};
+use crate::{SentUndo, UndoEventState, UndoStack};
 use crate::counter::UndoCounter;
 use crate::undo_event::UndoEvent;
 
@@ -16,7 +16,7 @@ impl AppUndoEx for App {
         self.add_event::<UndoEvent<T>>();
         self.init_resource::<UndoStack<T>>();
         self.add_systems(Update, pop_undo_event_system::<T>
-            .run_if(resource_exists_and_equals(UndoEventStatus::RequestUndo)),
+            .run_if(in_state(UndoEventState::RequestUndo)),
         );
         self.add_systems(Update, push_undo_event_system::<T>);
         self
@@ -26,13 +26,14 @@ impl AppUndoEx for App {
 
 fn pop_undo_event_system<E: Event + Clone>(
     mut ew: EventWriter<E>,
-    mut status: ResMut<UndoEventStatus>,
+    mut sent_event: ResMut<SentUndo>,
     mut undo_stack: ResMut<UndoStack<E>>,
     counter: Res<UndoCounter>,
 ) {
-    let Some(undo) = undo_stack.pop_if_has_latest(&counter) else { return; };
-    *status = UndoEventStatus::Sent;
-    ew.send(undo);
+    while let Some(undo) = undo_stack.pop_if_has_latest(&counter) {
+        sent_event.0 = true;
+        ew.send(undo);
+    }
 }
 
 

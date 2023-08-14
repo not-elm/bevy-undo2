@@ -1,11 +1,39 @@
 [package]
 name = "bevy-undo2"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+authors = ["elm-register <elmprograminfo@gmail.com>"]
+keywords = [
+    "game",
+    "gamedev",
+    "bevy",
+    "undo"
+]
+categories = [
+    "game-engines",
+]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/elm-register/bevy-undo2"
+description = "This crate makes it easy to use the undo-operation on bevy"
+
+
+[[example]]
+name = "simple"
+path = "examples/simple.rs"
+
+
+[[example]]
+name = "color_change_and_sprite_move"
+path = "examples/color_change_and_sprite_move.rs"
 
 
 [dependencies]
 bevy = "0.11.0"
+
+
+[dev-dependencies]
+bevy_tweening = "0.8.0"
 
 
 [features]

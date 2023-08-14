@@ -1,18 +1,11 @@
-use bevy::app::{App, Startup, Update};
-use bevy::DefaultPlugins;
-use bevy::input::Input;
-use bevy::math::Vec2;
-use bevy::prelude::{Camera2dBundle, Color, Commands, KeyCode, Res, Sprite};
-use bevy::sprite::SpriteBundle;
-use bevy::utils::default;
+use bevy::prelude::*;
+use bevy_undo2::prelude::*;
 
-use bevy_undo2::prelude::{UndoCallbackEventWriter, UndoRequester};
-use bevy_undo2::Undo2Plugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(Undo2Plugin)
+        .add_plugins(UndoPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, keyboard_input_system)
         .run();
@@ -21,23 +14,24 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut w: UndoCallbackEventWriter,
+    mut scheduler: UndoCallbackScheduler,
+    asset: Res<AssetServer>,
 ) {
     commands.spawn(Camera2dBundle::default());
-    let id = commands
-        .spawn(SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(100., 100.)),
-                color: Color::RED,
+    let text = commands
+        .spawn(Text2dBundle {
+            text: Text::from_section("Please Press [R]: Delete text", TextStyle {
+                font: asset.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 31.,
                 ..default()
-            },
+            }),
             ..default()
         })
         .id();
 
-    w.on_undo(move |cmd| {
-        cmd.entity(id).despawn();
-    })
+    scheduler.register(move |cmd| {
+        cmd.entity(text).despawn();
+    });
 }
 
 
