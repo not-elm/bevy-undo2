@@ -1,14 +1,16 @@
 use bevy::app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy::prelude::{Event, EventReader, in_state, IntoSystemConfigs, NextState, ResMut, Resource, States};
+use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, NextState, ResMut, Resource, States};
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
+use crate::reserve::{RequestPreserveCommitEvent, ReserveCounter};
 use crate::undo_event::UndoEvent;
 
 mod counter;
 mod extension;
 mod request;
 mod undo_event;
+mod reserve;
 
 pub mod prelude {
     pub use crate::request::UndoRequester;
@@ -29,11 +31,14 @@ impl Plugin for UndoPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state::<UndoEventState>()
+            .add_event::<RequestUndoEvent>()
+            .add_event::<RequestPreserveCommitEvent>()
+            .add_event::<UndoWaitEvent>()
             .init_resource::<UndoCounter>()
             .init_resource::<SentUndo>()
-            .add_event::<RequestUndoEvent>()
-            .add_systems(PreUpdate, request_undo_system)
-            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoEventState::RequestUndo)));
+            .add_systems(PreUpdate, (request_undo_system, undo_wait_event_system).chain())
+            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoEventState::RequestUndo)))
+            .add_systems(PostUpdate, reserve_reset_system.run_if(in_state(UndoEventState::PreserveCommit)));
 
         #[cfg(feature = "callback_event")]
         app.add_plugins(crate::undo_event::callback::UndoCallbackEventPlugin);
@@ -47,6 +52,8 @@ enum UndoEventState {
     None,
 
     RequestUndo,
+
+    PreserveCommit,
 }
 
 
@@ -66,6 +73,10 @@ impl<T: Event + Clone> Default for UndoStack<T> {
 pub(crate) struct SentUndo(pub bool);
 
 
+#[derive(Event)]
+struct UndoWaitEvent;
+
+
 impl<E: Event + Clone> UndoStack<E> {
     #[inline(always)]
     pub fn push(&mut self, e: UndoEvent<E>) {
@@ -75,27 +86,34 @@ impl<E: Event + Clone> UndoStack<E> {
 
     #[inline(always)]
     pub fn pop_if_has_latest(&mut self, counter: &UndoCounter) -> Option<E> {
-        if self.need_pop(counter) {
-            self.0.pop().map(|e| e.inner)
-        } else {
-            None
-        }
+        let index = self.0.iter().position(|undo| undo.no == **counter)?;
+        Some(self.0.remove(index).inner)
     }
+}
 
-
-    #[inline(always)]
-    fn need_pop(&self, counter: &UndoCounter) -> bool {
-        self.0.last().is_some_and(|undo| undo.no == **counter)
+fn request_undo_system(
+    mut preserve_reader: EventReader<RequestPreserveCommitEvent>,
+    mut undo_reader: EventReader<RequestUndoEvent>,
+    mut wait: EventWriter<UndoWaitEvent>,
+    mut state: ResMut<NextState<UndoEventState>>,
+) {
+    if preserve_reader.iter().next().is_some() {
+        state.set(UndoEventState::PreserveCommit);
+        if undo_reader.iter().next().is_some() {
+            wait.send(UndoWaitEvent);
+        }
+    } else if undo_reader.iter().next().is_some() {
+        state.set(UndoEventState::RequestUndo);
     }
 }
 
 
-fn request_undo_system(
-    mut er: EventReader<RequestUndoEvent>,
-    mut state: ResMut<NextState<UndoEventState>>,
+fn undo_wait_event_system(
+    mut er: EventReader<UndoWaitEvent>,
+    mut ew: EventWriter<RequestUndoEvent>,
 ) {
     if er.iter().next().is_some() {
-        state.set(UndoEventState::RequestUndo);
+        ew.send(RequestUndoEvent);
     }
 }
 
@@ -113,4 +131,12 @@ fn decrement_count_system(
 }
 
 
-
+fn reserve_reset_system(
+    mut state: ResMut<NextState<UndoEventState>>,
+    mut counter: ResMut<UndoCounter>,
+    mut preserve_counter: ResMut<ReserveCounter>,
+) {
+    *counter += *preserve_counter;
+    preserve_counter.reset();
+    state.set(UndoEventState::None);
+}

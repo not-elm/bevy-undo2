@@ -1,6 +1,7 @@
-use std::ops::Deref;
+use std::ops::{AddAssign, Deref};
 
 use bevy::prelude::Resource;
+use crate::reserve::ReserveCounter;
 
 #[derive(Resource, Default, Debug, Ord, PartialOrd, Eq, PartialEq)]
 #[repr(transparent)]
@@ -16,6 +17,8 @@ impl UndoCounter {
 
     #[inline(always)]
     pub fn increment(&mut self) {
+
+        println!("increment {}", self.0);
         self.0 += 1;
     }
 
@@ -23,6 +26,16 @@ impl UndoCounter {
     #[inline(always)]
     pub fn decrement(&mut self) {
         self.0 = self.0.checked_sub(1).unwrap_or_default();
+    }
+
+
+}
+
+
+
+impl AddAssign<ReserveCounter> for UndoCounter{
+    fn add_assign(&mut self, rhs: ReserveCounter) {
+        self.0 += *rhs;
     }
 }
 
