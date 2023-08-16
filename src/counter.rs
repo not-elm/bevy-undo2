@@ -17,8 +17,6 @@ impl UndoCounter {
 
     #[inline(always)]
     pub fn increment(&mut self) {
-
-        println!("increment {}", self.0);
         self.0 += 1;
     }
 
@@ -27,8 +25,6 @@ impl UndoCounter {
     pub fn decrement(&mut self) {
         self.0 = self.0.checked_sub(1).unwrap_or_default();
     }
-
-
 }
 
 

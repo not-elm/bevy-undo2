@@ -3,7 +3,7 @@ use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
-use crate::reserve::{RequestCommitReservationsFromSchedulerEvent, RequestCommitReservationsEvent, ReserveCounter};
+use crate::reserve::{RequestCommitReservationsEvent, RequestCommitReservationsFromSchedulerEvent, ReserveCounter};
 use crate::undo_event::UndoEvent;
 
 mod counter;
@@ -13,12 +13,12 @@ mod undo_event;
 mod reserve;
 
 pub mod prelude {
-    pub use crate::request::UndoRequester;
-    pub use crate::UndoPlugin;
     pub use crate::extension::AppUndoEx;
+    pub use crate::request::UndoRequester;
+    pub use crate::undo_event::{UndoReserveCommitter, UndoScheduler};
     #[cfg(feature = "callback_event")]
     pub use crate::undo_event::callback::UndoCallbackScheduler;
-    pub use crate::undo_event::{UndoScheduler, UndoReserveCommitter};
+    pub use crate::UndoPlugin;
 }
 
 
@@ -36,15 +36,22 @@ impl Plugin for UndoPlugin {
             .add_event::<RequestCommitReservationsEvent>()
             .add_event::<UndoWaitEvent>()
             .init_resource::<UndoCounter>()
-            .init_resource::<SentUndo>()
-            .add_systems(PreUpdate, (request_undo_system, undo_wait_event_system).chain())
-            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoState::RequestUndo)))
+            .init_resource::<Posted>()
+            .add_systems(PreUpdate, (request_undo_system, undo_wait_event_system)
+                .chain()
+                .run_if(in_state(UndoState::None)),
+            )
+            .add_systems(PostUpdate, reset_state_system.run_if(in_state(UndoState::RequestUndo)))
             .add_systems(PostUpdate, reserve_reset_system.run_if(in_state(UndoState::CommitReservations)));
 
         #[cfg(feature = "callback_event")]
         app.add_plugins(crate::undo_event::callback::UndoCallbackEventPlugin);
     }
 }
+
+
+#[derive(Resource, Default, Debug)]
+pub(crate) struct Posted(bool);
 
 
 #[derive(States, Default, PartialEq, Debug, Copy, Clone, Eq, Hash)]
@@ -70,10 +77,6 @@ impl<T: Event + Clone> Default for UndoStack<T> {
 }
 
 
-#[derive(Resource, Default)]
-pub(crate) struct SentUndo(pub bool);
-
-
 #[derive(Event)]
 struct UndoWaitEvent;
 
@@ -92,12 +95,14 @@ impl<E: Event + Clone> UndoStack<E> {
     }
 }
 
+
 fn request_undo_system(
     mut reserve_reader: EventReader<RequestCommitReservationsFromSchedulerEvent>,
     mut reserve_reader2: EventReader<RequestCommitReservationsEvent>,
     mut undo_reader: EventReader<RequestUndoEvent>,
     mut wait: EventWriter<UndoWaitEvent>,
     mut state: ResMut<NextState<UndoState>>,
+    mut posted: ResMut<Posted>,
 ) {
     if reserve_reader.iter().next().is_some() || reserve_reader2.iter().next().is_some() {
         state.set(UndoState::CommitReservations);
@@ -105,6 +110,7 @@ fn request_undo_system(
             wait.send(UndoWaitEvent);
         }
     } else if undo_reader.iter().next().is_some() {
+        posted.0 = false;
         state.set(UndoState::RequestUndo);
     }
 }
@@ -113,23 +119,25 @@ fn request_undo_system(
 fn undo_wait_event_system(
     mut er: EventReader<UndoWaitEvent>,
     mut ew: EventWriter<RequestUndoEvent>,
+    mut posted: ResMut<Posted>,
 ) {
     if er.iter().next().is_some() {
+        posted.0 = false;
         ew.send(RequestUndoEvent);
     }
 }
 
 
-fn decrement_count_system(
+fn reset_state_system(
     mut state: ResMut<NextState<UndoState>>,
     mut counter: ResMut<UndoCounter>,
-    mut sent: ResMut<SentUndo>,
+    mut posted: ResMut<Posted>,
 ) {
-    state.set(UndoState::None);
-    if sent.0 {
+    if posted.0 {
         counter.decrement();
-        sent.0 = false;
     }
+
+    state.set(UndoState::None);
 }
 
 
