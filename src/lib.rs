@@ -1,5 +1,5 @@
 use bevy::app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, NextState, ResMut, Resource, States};
+use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, NextState, Res, ResMut, Resource, States};
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
@@ -17,7 +17,7 @@ pub mod prelude {
     pub use crate::request::UndoRequester;
     pub use crate::undo_event::{UndoReserveCommitter, UndoScheduler};
     #[cfg(feature = "callback_event")]
-    pub use crate::undo_event::callback::UndoCallbackScheduler;
+    pub use crate::undo_event::callback::UndoCallbackEvent;
     pub use crate::UndoPlugin;
 }
 
@@ -131,7 +131,7 @@ fn undo_wait_event_system(
 fn reset_state_system(
     mut state: ResMut<NextState<UndoState>>,
     mut counter: ResMut<UndoCounter>,
-    mut posted: ResMut<Posted>,
+    posted: Res<Posted>,
 ) {
     if posted.0 {
         counter.decrement();

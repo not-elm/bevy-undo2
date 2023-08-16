@@ -14,7 +14,7 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut scheduler: UndoCallbackScheduler,
+    mut scheduler: UndoScheduler<UndoCallbackEvent>,
     asset: Res<AssetServer>,
 ) {
     commands.spawn(Camera2dBundle::default());
@@ -29,9 +29,9 @@ fn setup(
         })
         .id();
 
-    scheduler.register(move |cmd| {
+    scheduler.register(UndoCallbackEvent::new(move |cmd| {
         cmd.entity(text).despawn();
-    });
+    }));
 }
 
 

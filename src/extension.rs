@@ -1,5 +1,5 @@
-use bevy::app::{App, FixedUpdate, Update};
-use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, NextState, Res, ResMut};
+use bevy::app::{App, Update};
+use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, Res, ResMut};
 
 use crate::{Posted, UndoStack, UndoState};
 use crate::counter::UndoCounter;
@@ -42,7 +42,6 @@ fn pop_undo_event_system<E: Event + Clone>(
     mut posted: ResMut<Posted>,
     counter: Res<UndoCounter>,
 ) {
-
     if let Some(undo) = undo_stack.pop_if_has_latest(&counter) {
         posted.0 = true;
         ew.send(undo);
