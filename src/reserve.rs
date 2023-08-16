@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
 use bevy::prelude::{Event, Resource};
@@ -33,7 +34,6 @@ impl Deref for ReserveCounter {
 }
 
 
-
 impl ReserveCounter {
     #[inline(always)]
     pub fn increment(&mut self) {
@@ -49,19 +49,19 @@ impl ReserveCounter {
 
 
 #[derive(Resource)]
-pub(crate) struct UndoReserve<E: Event + Clone>(Vec<UndoReserveEvent<E>>);
+pub(crate) struct UndoReserve<E: Event + Clone>(VecDeque<UndoReserveEvent<E>>);
 
 
 impl<E: Event + Clone> UndoReserve<E> {
     #[inline]
     pub fn push(&mut self, event: UndoReserveEvent<E>) {
-        self.0.push(event);
+        self.0.push_back(event);
     }
 
 
     #[inline]
     pub fn pop(&mut self) -> Option<UndoReserveEvent<E>> {
-        self.0.pop()
+        self.0.pop_front()
     }
 }
 
@@ -69,7 +69,7 @@ impl<E: Event + Clone> UndoReserve<E> {
 impl<E: Event + Clone> Default for UndoReserve<E> {
     #[inline(always)]
     fn default() -> Self {
-        Self(vec![])
+        Self(VecDeque::new())
     }
 }
 

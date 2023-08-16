@@ -3,7 +3,7 @@ use std::ops::{AddAssign, Deref};
 use bevy::prelude::Resource;
 use crate::reserve::ReserveCounter;
 
-#[derive(Resource, Default, Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Resource, Default, Debug, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 #[repr(transparent)]
 pub(crate) struct UndoCounter(usize);
 
