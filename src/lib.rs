@@ -14,7 +14,7 @@ mod reserve;
 
 pub mod prelude {
     pub use crate::extension::AppUndoEx;
-    pub use crate::request::UndoRequester;
+    pub use crate::request::{UndoRequester, RequestUndoEvent};
     pub use crate::undo_event::{UndoReserveCommitter, UndoScheduler};
     #[cfg(feature = "callback_event")]
     pub use crate::undo_event::callback::UndoCallbackEvent;

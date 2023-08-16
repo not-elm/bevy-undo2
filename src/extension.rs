@@ -1,4 +1,4 @@
-use bevy::app::{App, Update};
+use bevy::app::{App, FixedUpdate, Update};
 use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, Res, ResMut};
 
 use crate::{Posted, UndoStack, UndoState};
@@ -21,7 +21,7 @@ impl AppUndoEx for App {
         self.init_resource::<UndoStack<UndoReserveEvent<E>>>();
         self.init_resource::<UndoReserve<E>>();
         self.init_resource::<ReserveCounter>();
-        self.add_systems(Update, commit_reservations_system::<E>
+        self.add_systems(FixedUpdate, commit_reservations_system::<E>
             .run_if(in_state(UndoState::CommitReservations)),
         );
         self.add_systems(Update, (
@@ -30,7 +30,7 @@ impl AppUndoEx for App {
         )
             .run_if(in_state(UndoState::RequestUndo)),
         );
-        self.add_systems(Update, (push_undo_event_system::<E>, reserve_event_system::<E>));
+        self.add_systems(FixedUpdate, (push_undo_event_system::<E>, reserve_event_system::<E>));
         self
     }
 }
