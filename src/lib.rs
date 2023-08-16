@@ -18,7 +18,7 @@ pub mod prelude {
     pub use crate::extension::AppUndoEx;
     #[cfg(feature = "callback_event")]
     pub use crate::undo_event::callback::UndoCallbackScheduler;
-    pub use crate::undo_event::UndoScheduler;
+    pub use crate::undo_event::{UndoScheduler, UndoReserveCommitter};
 }
 
 
