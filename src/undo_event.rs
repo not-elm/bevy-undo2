@@ -1,8 +1,8 @@
 use bevy::ecs::system::SystemParam;
-use bevy::prelude::{Event, EventWriter,  ResMut};
+use bevy::prelude::{Event, EventWriter, ResMut};
 
 use crate::counter::UndoCounter;
-use crate::reserve::{RequestPreserveCommitEvent, ReserveCounter, UndoReserve, UndoReserveEvent};
+use crate::reserve::{RequestCommitReservationsEvent, RequestCommitReservationsFromSchedulerEvent, ReserveCounter, UndoReserve, UndoReserveEvent};
 
 #[cfg(feature = "callback_event")]
 pub mod callback;
@@ -13,8 +13,17 @@ pub(crate) struct UndoEvent<E: Event + Clone> {
     pub no: usize,
 }
 
+#[derive(SystemParam)]
+pub struct UndoReserveCommitter<'w> {
+    ew: EventWriter<'w, RequestCommitReservationsEvent>,
+}
 
-
+impl UndoReserveCommitter {
+    #[inline(always)]
+    pub fn commit(&mut self) {
+        self.ew.send(RequestCommitReservationsEvent);
+    }
+}
 
 
 #[derive(SystemParam)]
@@ -23,8 +32,7 @@ pub struct UndoScheduler<'w, E: Event + Clone> {
     reserve: ResMut<'w, UndoReserve<E>>,
     reserve_counter: ResMut<'w, ReserveCounter>,
     undo_writer: EventWriter<'w, UndoEvent<E>>,
-
-    preserve_writer: EventWriter<'w, RequestPreserveCommitEvent>,
+    reserve_writer: EventWriter<'w, RequestCommitReservationsFromSchedulerEvent>,
 }
 
 
@@ -51,7 +59,7 @@ impl<'w, E: Event + Clone> UndoScheduler<'w, E> {
 
     #[inline]
     pub fn reserve_commit(&mut self) {
-        self.preserve_writer.send(RequestPreserveCommitEvent);
+        self.reserve_writer.send(RequestCommitReservationsFromSchedulerEvent);
     }
 }
 

@@ -1,7 +1,7 @@
 use bevy::app::{App, Update};
 use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs, Res, ResMut};
 
-use crate::{SentUndo, UndoEventState, UndoStack};
+use crate::{SentUndo, UndoState, UndoStack};
 use crate::counter::UndoCounter;
 use crate::prelude::UndoRequester;
 use crate::reserve::{ReserveCounter, UndoReserve, UndoReserveEvent};
@@ -23,13 +23,13 @@ impl AppUndoEx for App {
         self.init_resource::<ReserveCounter>();
         self.add_systems(Update, reserve_event_system::<E>);
         self.add_systems(Update, commit_preserve::<E>
-            .run_if(in_state(UndoEventState::PreserveCommit)),
+            .run_if(in_state(UndoState::CommitReservations)),
         );
         self.add_systems(Update, (
             pop_undo_event_system::<E>,
             pop_undo_event_system::<UndoReserveEvent<E>>
         )
-            .run_if(in_state(UndoEventState::RequestUndo)),
+            .run_if(in_state(UndoState::RequestUndo)),
         );
         self.add_systems(Update, push_undo_event_system::<E>);
 

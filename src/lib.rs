@@ -3,7 +3,7 @@ use bevy::prelude::{Event, EventReader, EventWriter, in_state, IntoSystemConfigs
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
-use crate::reserve::{RequestPreserveCommitEvent, ReserveCounter};
+use crate::reserve::{RequestCommitReservationsFromSchedulerEvent, RequestCommitReservationsEvent, ReserveCounter};
 use crate::undo_event::UndoEvent;
 
 mod counter;
@@ -30,15 +30,16 @@ pub struct UndoPlugin;
 impl Plugin for UndoPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_state::<UndoEventState>()
+            .add_state::<UndoState>()
             .add_event::<RequestUndoEvent>()
-            .add_event::<RequestPreserveCommitEvent>()
+            .add_event::<RequestCommitReservationsFromSchedulerEvent>()
+            .add_event::<RequestCommitReservationsEvent>()
             .add_event::<UndoWaitEvent>()
             .init_resource::<UndoCounter>()
             .init_resource::<SentUndo>()
             .add_systems(PreUpdate, (request_undo_system, undo_wait_event_system).chain())
-            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoEventState::RequestUndo)))
-            .add_systems(PostUpdate, reserve_reset_system.run_if(in_state(UndoEventState::PreserveCommit)));
+            .add_systems(PostUpdate, decrement_count_system.run_if(in_state(UndoState::RequestUndo)))
+            .add_systems(PostUpdate, reserve_reset_system.run_if(in_state(UndoState::CommitReservations)));
 
         #[cfg(feature = "callback_event")]
         app.add_plugins(crate::undo_event::callback::UndoCallbackEventPlugin);
@@ -47,13 +48,13 @@ impl Plugin for UndoPlugin {
 
 
 #[derive(States, Default, PartialEq, Debug, Copy, Clone, Eq, Hash)]
-enum UndoEventState {
+enum UndoState {
     #[default]
     None,
 
     RequestUndo,
 
-    PreserveCommit,
+    CommitReservations,
 }
 
 
@@ -92,18 +93,19 @@ impl<E: Event + Clone> UndoStack<E> {
 }
 
 fn request_undo_system(
-    mut preserve_reader: EventReader<RequestPreserveCommitEvent>,
+    mut reserve_reader: EventReader<RequestCommitReservationsFromSchedulerEvent>,
+    mut reserve_reader2: EventReader<RequestCommitReservationsEvent>,
     mut undo_reader: EventReader<RequestUndoEvent>,
     mut wait: EventWriter<UndoWaitEvent>,
-    mut state: ResMut<NextState<UndoEventState>>,
+    mut state: ResMut<NextState<UndoState>>,
 ) {
-    if preserve_reader.iter().next().is_some() {
-        state.set(UndoEventState::PreserveCommit);
+    if reserve_reader.iter().next().is_some() || reserve_reader2.iter().next().is_some() {
+        state.set(UndoState::CommitReservations);
         if undo_reader.iter().next().is_some() {
             wait.send(UndoWaitEvent);
         }
     } else if undo_reader.iter().next().is_some() {
-        state.set(UndoEventState::RequestUndo);
+        state.set(UndoState::RequestUndo);
     }
 }
 
@@ -119,11 +121,11 @@ fn undo_wait_event_system(
 
 
 fn decrement_count_system(
-    mut state: ResMut<NextState<UndoEventState>>,
+    mut state: ResMut<NextState<UndoState>>,
     mut counter: ResMut<UndoCounter>,
     mut sent: ResMut<SentUndo>,
 ) {
-    state.set(UndoEventState::None);
+    state.set(UndoState::None);
     if sent.0 {
         counter.decrement();
         sent.0 = false;
@@ -132,11 +134,11 @@ fn decrement_count_system(
 
 
 fn reserve_reset_system(
-    mut state: ResMut<NextState<UndoEventState>>,
+    mut state: ResMut<NextState<UndoState>>,
     mut counter: ResMut<UndoCounter>,
-    mut preserve_counter: ResMut<ReserveCounter>,
+    mut reserve_counter: ResMut<ReserveCounter>,
 ) {
-    *counter += *preserve_counter;
-    preserve_counter.reset();
-    state.set(UndoEventState::None);
+    *counter += *reserve_counter;
+    reserve_counter.reset();
+    state.set(UndoState::None);
 }

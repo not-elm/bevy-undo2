@@ -4,7 +4,11 @@ use bevy::prelude::{Event, Resource};
 
 
 #[derive(Event, Clone)]
-pub(crate) struct RequestPreserveCommitEvent;
+pub(crate) struct RequestCommitReservationsFromSchedulerEvent;
+
+
+#[derive(Event, Clone)]
+pub(crate) struct RequestCommitReservationsEvent;
 
 
 #[derive(Event, Clone)]
