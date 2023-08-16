@@ -18,7 +18,7 @@ pub struct UndoReserveCommitter<'w> {
     ew: EventWriter<'w, RequestCommitReservationsEvent>,
 }
 
-impl UndoReserveCommitter {
+impl<'w> UndoReserveCommitter<'w> {
     #[inline(always)]
     pub fn commit(&mut self) {
         self.ew.send(RequestCommitReservationsEvent);
