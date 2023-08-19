@@ -3,54 +3,59 @@ use bevy_undo2::prelude::*;
 
 
 #[derive(Event, Debug, Clone)]
-struct UndoEvent1(String);
-
-
-#[derive(Resource, Debug, Clone, Default)]
-struct Count(usize);
+enum UndoColorEvent {
+    Red,
+    Blue,
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<Count>()
         .add_plugins(UndoPlugin)
-        .add_undo_event::<UndoEvent1>()
+        .add_undo_event::<UndoColorEvent>()
         .add_systems(Update, (
-            keyboard_input_system,
+            reserve_red_system,
+            reserve_blue_system,
             request_undo_system,
+            register_all_reserved_system,
             undo_system
         ))
         .run();
 }
 
 
-fn keyboard_input_system(
-    mut u1: UndoScheduler<UndoEvent1>,
-    mut count: ResMut<Count>,
+fn reserve_red_system(
+    mut scheduler: UndoScheduler<UndoColorEvent>,
     key: Res<Input<KeyCode>>,
 ) {
-    if key.just_pressed(KeyCode::Up) {
-        match count.0 {
-            0 => {
-                println!("Reserve 0");
-                u1.reserve(UndoEvent1("Undo 0".to_string()));
-            }
-            1 => {
-                println!("Reserve 1");
-                u1.reserve(UndoEvent1("Undo 1".to_string()));
-            }
-            2 => {
-                println!("Reserve 2");
-                println!("Register all reserves");
-                u1.reserve(UndoEvent1("Undo 2".to_string()));
-                u1.register_all_reserved();
-            }
-            _ => {}
-        }
-
-        count.0 = (count.0 + 1) % 3;
+    if key.just_pressed(KeyCode::Key1) {
+        println!("Reserved {:?}", UndoColorEvent::Red);
+        scheduler.reserve(UndoColorEvent::Red);
     }
 }
+
+
+fn reserve_blue_system(
+    mut scheduler: UndoScheduler<UndoColorEvent>,
+    key: Res<Input<KeyCode>>,
+) {
+    if key.just_pressed(KeyCode::Key2) {
+        println!("Reserved {:?}", UndoColorEvent::Blue);
+        scheduler.reserve(UndoColorEvent::Blue);
+    }
+}
+
+
+fn register_all_reserved_system(
+    mut committer: UndoReserveCommitter,
+    key: Res<Input<KeyCode>>,
+) {
+    if key.just_pressed(KeyCode::Key3) {
+        println!("Register all reserved");
+        committer.commit();
+    }
+}
+
 
 fn request_undo_system(
     mut requester: UndoRequester,
@@ -62,8 +67,8 @@ fn request_undo_system(
 }
 
 
-fn undo_system(mut er: EventReader<UndoEvent1>) {
-    for UndoEvent1(message) in er.iter() {
-        println!("{}", message);
+fn undo_system(mut er: EventReader<UndoColorEvent>) {
+    for event in er.iter() {
+        println!("{:?}", event);
     }
 }

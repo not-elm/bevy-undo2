@@ -2,7 +2,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Event, EventWriter, ResMut};
 
 use crate::counter::UndoCounter;
-use crate::reserve::{RequestCommitReservationsEvent, RequestCommitReservationsFromSchedulerEvent, ReserveCounter, UndoReserve, UndoReserveEvent};
+use crate::reserve::{RequestCommitReservationsEvent, RequestCommitReservationsFromSchedulerEvent, ReserveCounter, UndoReservedArea, UndoReserveEvent};
 
 #[cfg(feature = "callback_event")]
 pub mod callback;
@@ -30,7 +30,7 @@ impl<'w> UndoReserveCommitter<'w> {
 #[derive(SystemParam)]
 pub struct UndoScheduler<'w, E: Event + Clone> {
     counter: ResMut<'w, UndoCounter>,
-    reserve: ResMut<'w, UndoReserve<E>>,
+    reserve: ResMut<'w, UndoReservedArea<E>>,
     reserve_counter: ResMut<'w, ReserveCounter>,
     undo_writer: EventWriter<'w, UndoEvent<E>>,
     reserve_writer: EventWriter<'w, RequestCommitReservationsFromSchedulerEvent>,

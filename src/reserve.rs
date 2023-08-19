@@ -49,10 +49,10 @@ impl ReserveCounter {
 
 
 #[derive(Resource)]
-pub(crate) struct UndoReserve<E: Event + Clone>(VecDeque<UndoReserveEvent<E>>);
+pub(crate) struct UndoReservedArea<E: Event + Clone>(pub(crate) VecDeque<UndoReserveEvent<E>>);
 
 
-impl<E: Event + Clone> UndoReserve<E> {
+impl<E: Event + Clone> UndoReservedArea<E> {
     #[inline]
     pub fn push(&mut self, event: UndoReserveEvent<E>) {
         self.0.push_back(event);
@@ -66,7 +66,7 @@ impl<E: Event + Clone> UndoReserve<E> {
 }
 
 
-impl<E: Event + Clone> Default for UndoReserve<E> {
+impl<E: Event + Clone> Default for UndoReservedArea<E> {
     #[inline(always)]
     fn default() -> Self {
         Self(VecDeque::new())

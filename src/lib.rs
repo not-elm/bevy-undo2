@@ -1,5 +1,5 @@
-use bevy::app::{App, Plugin,  Update};
-use bevy::prelude::{Event, EventReader, EventWriter, ResMut, Resource};
+use bevy::app::{App, Plugin};
+use bevy::prelude::{Event, IntoSystemConfigs, EventReader, EventWriter, PreUpdate, ResMut, Resource};
 
 use crate::counter::UndoCounter;
 use crate::request::RequestUndoEvent;
@@ -36,10 +36,10 @@ impl Plugin for UndoPlugin {
             .add_event::<RequestCommitReservationsFromSchedulerEvent>()
             .add_event::<RequestCommitReservationsEvent>()
             .init_resource::<UndoCounter>()
-            .add_systems(Update, (
+            .add_systems(PreUpdate, (
                 decrement_counter,
                 reserve_reset_system
-            ));
+            ).chain());
 
         #[cfg(feature = "callback_event")]
         app.add_plugins(crate::undo_event::callback::UndoCallbackEventPlugin);
@@ -48,10 +48,10 @@ impl Plugin for UndoPlugin {
 
 
 #[derive(Resource)]
-struct UndoStack<T: Event + Clone>(Vec<UndoEvent<T>>);
+struct UndoRegisteredArea<T: Event + Clone>(Vec<UndoEvent<T>>);
 
 
-impl<T: Event + Clone> Default for UndoStack<T> {
+impl<T: Event + Clone> Default for UndoRegisteredArea<T> {
     #[inline(always)]
     fn default() -> Self {
         Self(vec![])
@@ -59,10 +59,16 @@ impl<T: Event + Clone> Default for UndoStack<T> {
 }
 
 
-impl<E: Event + Clone> UndoStack<E> {
+impl<E: Event + Clone> UndoRegisteredArea<E> {
     #[inline(always)]
     pub fn push(&mut self, e: UndoEvent<E>) {
         self.0.push(e);
+    }
+
+
+    #[inline(always)]
+    pub fn pop(&mut self) -> Option<E> {
+        self.0.pop().map(|e| e.inner)
     }
 
 
@@ -102,5 +108,155 @@ fn reserve_reset_system(
         ew.send(CommitReservationsEvent(*counter));
         *counter += *reserve_counter;
         reserve_counter.reset();
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use bevy::app::{App, Startup, Update};
+    use bevy::input::Input;
+    use bevy::prelude::{Commands, Component, Event, EventReader, KeyCode, Res};
+    use crate::counter::UndoCounter;
+    use crate::extension::AppUndoEx;
+    use crate::prelude::UndoRequester;
+    use crate::reserve::{ReserveCounter, UndoReservedArea, UndoReserveEvent};
+    use crate::undo_event::UndoScheduler;
+    use crate::{UndoPlugin, UndoRegisteredArea};
+
+    #[derive(Event, Clone, Default)]
+    struct UndoEvent;
+
+    #[derive(Component)]
+    struct OnUndo;
+
+
+    #[test]
+    fn once_register() {
+        let mut app = new_app();
+        app.add_systems(Startup, |mut s: UndoScheduler<UndoEvent>| {
+            s.register_default();
+        });
+        app.update();
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::R);
+        app.update();
+        app.update();
+
+        assert_eq!(app.world.query::<&OnUndo>().iter(&app.world).len(), 1);
+    }
+
+
+    #[test]
+    fn register_2times() {
+        let mut app = new_app();
+        app.add_systems(Startup, |mut s: UndoScheduler<UndoEvent>| {
+            s.register_default();
+            s.register_default();
+        });
+
+        app.update();
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::R);
+        app.update();
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::R);
+        app.update();
+
+        assert_eq!(app.world.query::<&OnUndo>().iter(&app.world).len(), 1);
+        app.update();
+
+        assert_eq!(app.world.query::<&OnUndo>().iter(&app.world).len(), 2);
+    }
+
+
+    #[test]
+    fn reserve_init_3times() {
+        let mut app = new_app();
+        app.add_systems(Startup, |mut s: UndoScheduler<UndoEvent>| {
+            s.reserve_default();
+            s.reserve_default();
+            s.reserve_default();
+            s.register_all_reserved();
+        });
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::R);
+        app.update();
+        app.update();
+
+        assert_eq!(app.world.query::<&OnUndo>().iter(&app.world).len(), 3);
+    }
+
+
+    #[test]
+    fn reserve_at_intervals() {
+        let mut app = new_app();
+        app.add_systems(Update, |mut s: UndoScheduler<UndoEvent>, key: Res<Input<KeyCode>>| {
+            if key.just_pressed(KeyCode::A) {
+                s.reserve_default();
+            } else if key.just_pressed(KeyCode::B) {
+                s.register_all_reserved();
+            }
+        });
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::A);
+        app.update();
+        assert_eq!(app.world.resource_mut::<UndoReservedArea<UndoEvent>>().0.len(), 1);
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::A);
+        app.update();
+        assert_eq!(app.world.resource_mut::<UndoReservedArea<UndoEvent>>().0.len(), 2);
+
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::A);
+        app.update();
+           assert_eq!(app.world.resource_mut::<UndoReservedArea<UndoEvent>>().0.len(), 3);
+
+        app.world.resource_mut::<Input<KeyCode>>().reset(KeyCode::A);
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::B);
+        app.update();
+        app.world.resource_mut::<Input<KeyCode>>().reset(KeyCode::B);
+        app.update();
+
+        assert_eq!(app.world.resource_mut::<UndoReservedArea<UndoEvent>>().0.len(), 0);
+        assert_eq!(app.world.resource_mut::<UndoRegisteredArea<UndoReserveEvent<UndoEvent>>>().0.len(), 3);
+
+        app.world.resource_mut::<Input<KeyCode>>().reset(KeyCode::B);
+        app.world.resource_mut::<Input<KeyCode>>().press(KeyCode::R);
+        app.update();
+
+        app.update();
+
+        assert_eq!(**app.world.resource_mut::<UndoCounter>(), 0);
+        assert_eq!(**app.world.resource_mut::<ReserveCounter>(), 0);
+        assert_eq!(app.world.resource_mut::<UndoRegisteredArea<UndoEvent>>().0.len(), 0);
+        assert_eq!(app.world.resource_mut::<UndoReservedArea<UndoEvent>>().0.len(), 0);
+        assert_eq!(app.world.query::<&OnUndo>().iter(&app.world).len(), 3);
+    }
+
+
+    fn undo(mut req: UndoRequester, key: Res<Input<KeyCode>>) {
+        if key.just_pressed(KeyCode::R) {
+            req.undo();
+        }
+    }
+
+    fn read_undo(
+        mut commands: Commands,
+        mut er: EventReader<UndoEvent>,
+    ) {
+        for _ in er.iter() {
+            commands.spawn(OnUndo);
+        }
+    }
+
+    fn new_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(UndoPlugin);
+        app.init_resource::<Input<KeyCode>>();
+        app.add_undo_event::<UndoEvent>();
+        app.add_systems(Update, read_undo);
+        app.add_systems(Update, undo);
+
+        app
     }
 }

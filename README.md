@@ -67,63 +67,31 @@ fn read_undo_event_system(
 }
 ```
 
+### Callback
+
+Callbacks can also be registered by using `UndoCallbackEvent`, which is built in by default.
+
 [examples/callback.rs](./examples/callback.rs)
 
 ```rust
-use bevy::prelude::*;
-use bevy_undo2::prelude::*;
-
-
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(UndoPlugin)
-        .add_systems(Startup, setup)
-        .add_systems(Update, keyboard_input_system)
-        .run();
-}
-
-
 fn setup(
-    mut commands: Commands,
-    mut scheduler: UndoCallbackScheduler,
-    asset: Res<AssetServer>,
+    mut scheduler: UndoScheduler<UndoCallbackEvent>
 ) {
-    commands.spawn(Camera2dBundle::default());
-    let text = commands
-        .spawn(Text2dBundle {
-            text: Text::from_section("Please Press [R]: Delete text", TextStyle {
-                font: asset.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 31.,
-                ..default()
-            }),
-            ..default()
-        })
-        .id();
-
-    scheduler.register(move |cmd| {
+    let entity: Enity;
+    scheduler.register(UndoCallbackEvent::new(move |cmd| {
         cmd.entity(text).despawn();
-    });
-}
-
-
-fn keyboard_input_system(
-    mut requester: UndoRequester,
-    key: Res<Input<KeyCode>>,
-) {
-    if key.pressed(KeyCode::R) {
-        requester.undo();
-    }
+    }));
 }
 ```
 
-## Reserved Area
+### Reserved Area
 
-It is possible to send multiple events with signle call `undo` by placing in the reserved area.
+It is possible to send multiple events with single call `undo` by placing in the reserved area.
 
 See below for an example:
 
- [examples/reserve.rs](./examples/reserve.rs)
+[examples/reserve.rs](./examples/reserve.rs)
+
 
 ## Compatible Bevy versions
 
