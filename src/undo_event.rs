@@ -19,6 +19,7 @@ pub struct UndoReserveCommitter<'w> {
 }
 
 impl<'w> UndoReserveCommitter<'w> {
+    /// Moves all events placed on the reserved area by [`reserve`](UndoScheduler::reserve) to the registered area.
     #[inline(always)]
     pub fn commit(&mut self) {
         self.ew.send(RequestCommitReservationsEvent);
@@ -37,6 +38,10 @@ pub struct UndoScheduler<'w, E: Event + Clone> {
 
 
 impl<'w, E: Event + Clone> UndoScheduler<'w, E> {
+    /// Register the undo-event　in the registered area.
+    ///
+    /// Events can registered multiple, and when [`UndoRequester::undo`](crate::request::UndoRequester) is called,
+    /// last registered will sent
     #[inline(always)]
     pub fn register(&mut self, event: E) {
         self.counter.increment();
@@ -47,6 +52,12 @@ impl<'w, E: Event + Clone> UndoScheduler<'w, E> {
     }
 
 
+    /// Place the undo-event in the reserved area.
+    ///
+    /// Events is  in placed on same reserved area until [`reserve_commit`](UndoScheduler::register_all_reserved) is called.
+    ///
+    ///
+    /// This method is useful when want to sent  multiple undo-event with single call [`UndoRequest::undo`](crate::request::UndoRequester) .
     #[inline]
     pub fn reserve(&mut self, event: E) {
         self.reserve_counter.increment();
@@ -57,20 +68,31 @@ impl<'w, E: Event + Clone> UndoScheduler<'w, E> {
     }
 
 
+    /// Moves all events placed on the reserved area by [`reserve`](UndoScheduler::reserve) to the registered area.
     #[inline]
-    pub fn reserve_commit(&mut self) {
+    pub fn register_all_reserved(&mut self) {
         self.reserve_writer.send(RequestCommitReservationsFromSchedulerEvent);
     }
 }
 
 
 impl<'w, E: Event + Clone + Default> UndoScheduler<'w, E> {
+    /// Register the undo-event　in the registered area with default value.
+    ///
+    /// Events can registered multiple, and when [`UndoRequester::undo`](crate::request::UndoRequester) is called,
+    /// last registered will sent
     #[inline(always)]
     pub fn register_default(&mut self) {
         self.register(E::default());
     }
 
 
+    /// Place the undo-event in the reserved area with default value.
+    ///
+    /// Events is  in placed on same reserved area until [`reserve_commit`](UndoScheduler::register_all_reserved) is called.
+    ///
+    ///
+    /// This method is useful when want to sent  multiple undo-event with single call [`UndoRequest::undo`](crate::request::UndoRequester) .
     #[inline(always)]
     pub fn reserve_default(&mut self) {
         self.reserve(E::default());

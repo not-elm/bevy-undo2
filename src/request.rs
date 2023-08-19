@@ -14,6 +14,8 @@ pub struct UndoRequester<'w> {
 
 
 impl<'w> UndoRequester<'w> {
+    /// request undo-operation.
+    /// This will send　the most recent event registered via [`UndoScheduler`](crate::undo_event::UndoScheduler).
     #[inline(always)]
     pub fn undo(&mut self) {
         self.ew.send(RequestUndoEvent(*self.counter));

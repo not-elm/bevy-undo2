@@ -3,7 +3,6 @@
 This crate makes it easy to use the undo-operation on [bevy](https://bevyengine.org/).
 
 [![License: MIT/Apache](https://img.shields.io/badge/License-MIT%20or%20Apache2-blue.svg)](https://opensource.org/licenses/MIT)
-
 [![Crate](https://img.shields.io/crates/v/bevy-undo2.svg)](https://crates.io/crates/bevy-undo2)
 
 ## Examples
@@ -117,6 +116,14 @@ fn keyboard_input_system(
     }
 }
 ```
+
+## Reserved Area
+
+It is possible to send multiple events with signle call `undo` by placing in the reserved area.
+
+See below for an example:
+
+ [examples/reserve.rs](./examples/reserve.rs)
 
 ## Compatible Bevy versions
 

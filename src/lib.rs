@@ -1,4 +1,4 @@
-use bevy::app::{App, FixedUpdate, Plugin, PostUpdate, Update};
+use bevy::app::{App, Plugin,  Update};
 use bevy::prelude::{Event, EventReader, EventWriter, ResMut, Resource};
 
 use crate::counter::UndoCounter;
@@ -68,7 +68,6 @@ impl<E: Event + Clone> UndoStack<E> {
 
     #[inline(always)]
     pub fn pop_if_has_latest(&mut self, counter: &UndoCounter) -> Option<E> {
-        self.0.iter().for_each(|undo| println!("{counter:?} {}", undo.no));
         if self.0.last().is_some_and(|undo| undo.no == **counter) {
             self.0.pop().map(|undo| undo.inner)
         } else {
