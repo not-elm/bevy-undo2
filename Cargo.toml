@@ -1,8 +1,8 @@
 [package]
 name = "bevy-undo2"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
-authors = ["elm-register <elmprograminfo@gmail.com>"]
+authors = ["elm"]
 keywords = [
     "game",
     "gamedev",
@@ -28,8 +28,18 @@ name = "color_change_and_sprite_move"
 path = "examples/color_change_and_sprite_move.rs"
 
 
+[[example]]
+name = "reserve"
+path = "examples/reserve.rs"
+
+
+[[example]]
+name = "callback"
+path = "examples/callback.rs"
+
+
 [dependencies]
-bevy = "0.11.0"
+bevy = "0.11.2"
 
 
 [dev-dependencies]
