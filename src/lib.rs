@@ -68,11 +68,8 @@ impl<E: Event + Clone> UndoStack<E> {
 
     #[inline(always)]
     pub fn pop_if_has_latest(&mut self, counter: &UndoCounter) -> Option<E> {
-        if self.0.last().is_some_and(|undo| undo.no == **counter) {
-            self.0.pop().map(|undo| undo.inner)
-        } else {
-            None
-        }
+        let index = self.0.iter().position(|undo| **counter <= undo.no)?;
+        Some(self.0.remove(index).inner)
     }
 }
 

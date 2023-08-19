@@ -1,10 +1,11 @@
 use bevy::app::{App, FixedUpdate, Update};
 use bevy::prelude::{Event, EventReader, EventWriter, ResMut};
 use crate::{CommitReservationsEvent, DecrementCounterEvent, UndoStack};
-use crate::prelude::{UndoRequester, UndoScheduler};
+use crate::prelude::{UndoRequester};
 use crate::request::RequestUndoEvent;
 use crate::reserve::{ReserveCounter, UndoReserve, UndoReserveEvent};
 use crate::undo_event::UndoEvent;
+
 
 pub trait AppUndoEx {
     /// Setup the app to manage undo events of type `T`
@@ -29,9 +30,9 @@ impl AppUndoEx for App {
             pop_undo_event_system::<E>,
             pop_undo_event_system::<E>,
             pop_undo_event_system::<UndoReserveEvent<E>>,
-            push_undo_event_system::<E>
+            push_undo_event_system::<E>,
+            reserve_event_system::<E>
         ));
-        self.add_systems(FixedUpdate, reserve_event_system::<E>);
         self
     }
 }

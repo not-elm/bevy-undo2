@@ -41,6 +41,7 @@ fn keyboard_input_system(
             }
             2 => {
                 println!("Reserve 2");
+                println!("Register all reserves");
                 u1.reserve(UndoEvent1("Undo 2".to_string()));
                 u1.register_all_reserved();
             }
@@ -53,8 +54,8 @@ fn keyboard_input_system(
 
 fn request_undo_system(
     mut requester: UndoRequester,
-    key: Res<Input<KeyCode>>
-){
+    key: Res<Input<KeyCode>>,
+) {
     if key.just_pressed(KeyCode::R) {
         requester.undo();
     }
