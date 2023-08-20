@@ -88,12 +88,19 @@ fn reserve_event_system<E: Event + Clone>(
         return;
     }
 
-    for e in er.iter() {
-        ew.send(e.inner.clone());
+    for event in er.iter() {
+        ew.send(event.inner.clone());
+        if event.reserve_no == 1{
+            return;
+        }
     }
+
     while let Some(event) = registered_area.pop() {
         ew.send(event.inner.clone());
         decrement_writer.send(DecrementCounterEvent);
+        if event.reserve_no == 1{
+            return;
+        }
     }
 }
 
