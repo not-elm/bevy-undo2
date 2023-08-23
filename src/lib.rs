@@ -74,7 +74,10 @@ impl<E: Event + Clone> UndoRegisteredArea<E> {
 
     #[inline(always)]
     pub fn pop_if_has_latest(&mut self, counter: &UndoCounter) -> Option<E> {
-        let index = self.0.iter().position(|undo| **counter <= undo.no)?;
+        let index = self.0.iter().position(|undo| {
+            **counter <= undo.no
+        })?;
+
         Some(self.0.remove(index).inner)
     }
 }

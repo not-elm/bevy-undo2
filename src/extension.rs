@@ -1,6 +1,7 @@
 use bevy::app::{App, Update};
 use bevy::prelude::{Event, EventReader, EventWriter, IntoSystemConfigs, ResMut};
 use crate::{CommitReservationsEvent, DecrementCounterEvent, UndoRegisteredArea};
+use crate::prelude::UndoRequester;
 use crate::request::RequestUndoEvent;
 use crate::reserve::{ReserveCounter, UndoReservedArea, UndoReserveEvent};
 use crate::undo_event::UndoEvent;
@@ -25,12 +26,13 @@ impl AppUndoEx for App {
         self.init_resource::<UndoReservedArea<E>>();
         self.init_resource::<ReserveCounter>();
         self.add_systems(Update, (
+               reserve_event_system::<E>,
             register_all_reserved_events_system::<E>,
             push_undo_event_system::<E>,
-            pop_undo_event_system::<E>,
-            pop_undo_event_system::<E>,
-            pop_undo_event_system::<UndoReserveEvent<E>>,
-            reserve_event_system::<E>
+            request_undo_event_system::<E>,
+            request_undo_event_system::<E>,
+            request_undo_event_system::<UndoReserveEvent<E>>,
+
         ).chain());
         self
     }
@@ -39,11 +41,13 @@ impl AppUndoEx for App {
 
 fn register_all_reserved_events_system<E: Event + Clone>(
     mut er: EventReader<CommitReservationsEvent>,
-    mut preserve: ResMut<UndoReservedArea<E>>,
+    mut reserved_area: ResMut<UndoReservedArea<E>>,
     mut registered_reserve_event_area: ResMut<UndoRegisteredArea<UndoReserveEvent<E>>>,
 ) {
-    if let Some(CommitReservationsEvent(counter)) = er.iter().next() {
-        while let Some(event) = preserve.pop() {
+    while let Some(CommitReservationsEvent(counter)) = er.iter().next() {
+        reserved_area.0.sort_by(|e1, e2| e2.reserve_no.partial_cmp(&e1.reserve_no).unwrap());
+
+        while let Some(event) = reserved_area.pop_front() {
             registered_reserve_event_area.push(UndoEvent {
                 inner: event.clone(),
                 no: **counter + event.reserve_no,
@@ -63,7 +67,7 @@ fn push_undo_event_system<E: Event + Clone>(
 }
 
 
-fn pop_undo_event_system<E: Event + Clone>(
+fn request_undo_event_system<E: Event + Clone>(
     mut er: EventReader<RequestUndoEvent>,
     mut ew: EventWriter<E>,
     mut decrement_writer: EventWriter<DecrementCounterEvent>,
@@ -81,8 +85,7 @@ fn pop_undo_event_system<E: Event + Clone>(
 fn reserve_event_system<E: Event + Clone>(
     mut er: EventReader<UndoReserveEvent<E>>,
     mut ew: EventWriter<E>,
-    mut registered_area: ResMut<UndoRegisteredArea<UndoReserveEvent<E>>>,
-    mut decrement_writer: EventWriter<DecrementCounterEvent>,
+    mut undo_event_writer: UndoRequester,
 ) {
     if er.is_empty() {
         return;
@@ -90,16 +93,8 @@ fn reserve_event_system<E: Event + Clone>(
 
     for event in er.iter() {
         ew.send(event.inner.clone());
-        if event.reserve_no == 1{
-            return;
-        }
-    }
-
-    while let Some(event) = registered_area.pop() {
-        ew.send(event.inner.clone());
-        decrement_writer.send(DecrementCounterEvent);
-        if event.reserve_no == 1{
-            return;
+        if 1 < event.reserve_no {
+            undo_event_writer.undo();
         }
     }
 }
